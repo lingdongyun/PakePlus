@@ -1,14 +1,18 @@
 window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("script");t.src="https://www.googletagmanager.com/gtag/js?id=G-W5GKHM0893",t.async=!0,document.head.appendChild(t);const n=document.createElement("script");n.textContent="window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-W5GKHM0893');",document.body.appendChild(n)});// very important, if you don't know what it is, don't touch it
 // 非常重要，不懂代码不要动，这里可以解决80%的问题，也可以生产1000+的bug
 
-const hookClick = (e) => {
-    const target = e.target
+/**
+ * 原有功能：
+ * 把 target="_blank" 和 window.open 的链接改为在当前窗口打开。
+ */
+const hookClick = (event) => {
+    const target = event.target
 
     if (!(target instanceof Element)) {
         return
     }
 
-    // 自定义按钮不参与链接拦截
+    // 自定义返回、刷新按钮不参与链接拦截
     if (
         target.closest('#custom-top-buttons') ||
         target.closest('#custom-top-slogan')
@@ -27,7 +31,7 @@ const hookClick = (e) => {
         (origin && origin.href && origin.target === '_blank') ||
         (origin && origin.href && isBaseTargetBlank)
     ) {
-        e.preventDefault()
+        event.preventDefault()
         console.log('handle origin', origin)
         location.href = origin.href
     } else {
@@ -35,10 +39,6 @@ const hookClick = (e) => {
     }
 }
 
-/**
- * 拦截 window.open：
- * 新窗口链接改为当前窗口打开。
- */
 window.open = function (url, target, features) {
     console.log('open', url, target, features)
 
@@ -52,99 +52,45 @@ window.open = function (url, target, features) {
 document.addEventListener('click', hookClick, { capture: true })
 
 /**
- * 之前拖动版脚本保存位置时使用的名称。
- * 这里继续读取，因此会保持你现在调整好的位置。
+ * 固定位置设置
+ *
+ * 按钮：固定在左上方第一栏。
+ * 文字：固定在顶部中间偏右的位置。
+ *
+ * 本版不读取 localStorage，因此预览、刷新或重新发布时，
+ * 不会因为旧坐标导致文字跑出屏幕。
  */
-const CUSTOM_POSITION_KEYS = {
-    buttons: 'custom_top_buttons_position_v1',
-    slogan: 'custom_top_slogan_position_v1'
-}
-
-/**
- * 读取已经保存的位置。
- * 如果没有保存记录，则使用截图对应的默认位置。
- */
-const readSavedPosition = (key, defaultPosition) => {
-    try {
-        const savedValue = localStorage.getItem(key)
-
-        if (!savedValue) {
-            return defaultPosition
-        }
-
-        const parsedValue = JSON.parse(savedValue)
-
-        if (
-            typeof parsedValue.left === 'number' &&
-            typeof parsedValue.top === 'number'
-        ) {
-            return {
-                left: parsedValue.left,
-                top: parsedValue.top
-            }
-        }
-    } catch (error) {
-        console.warn('读取保存位置失败：', error)
-    }
-
-    return defaultPosition
-}
-
-/**
- * 防止窗口大小变化时按钮跑出屏幕。
- */
-const keepInsideWindow = (left, top, element) => {
-    const maxLeft = Math.max(
-        0,
-        window.innerWidth - element.offsetWidth
-    )
-
-    const maxTop = Math.max(
-        0,
-        window.innerHeight - element.offsetHeight
-    )
-
-    return {
-        left: Math.min(Math.max(0, left), maxLeft),
-        top: Math.min(Math.max(0, top), maxTop)
-    }
+const CUSTOM_TOP_CONFIG = {
+    buttons: {
+        left: 225,
+        top: 10
+    },
+    slogan: {
+        top: 10,
+        leftPercent: 63.5,
+        right: 100
+    },
+    text: '沉下心做好当下事，保持清醒与分寸，长远的收获，从来源于稳步耕耘。'
 }
 
 const addFixedTopContent = () => {
-    // 删除旧脚本可能残留的内容
+    if (!document.head || !document.body) {
+        return
+    }
+
+    // 清理旧版本残留
     document.getElementById('custom-top-style')?.remove()
     document.getElementById('custom-top-buttons')?.remove()
     document.getElementById('custom-top-slogan')?.remove()
-
-    /*
-     * 优先读取你刚才拖动后保存的坐标。
-     * 下面的数字只是没有保存坐标时的备用值。
-     */
-    const buttonPosition = readSavedPosition(
-        CUSTOM_POSITION_KEYS.buttons,
-        {
-            left: 208,
-            top: 18
-        }
-    )
-
-    const sloganPosition = readSavedPosition(
-        CUSTOM_POSITION_KEYS.slogan,
-        {
-            left: Math.round(window.innerWidth * 0.645),
-            top: 20
-        }
-    )
 
     const style = document.createElement('style')
     style.id = 'custom-top-style'
 
     style.textContent = `
-        /*
-         * 返回、刷新按钮固定区域
-         */
         #custom-top-buttons {
             position: fixed;
+            left: ${CUSTOM_TOP_CONFIG.buttons.left}px;
+            top: ${CUSTOM_TOP_CONFIG.buttons.top}px;
             z-index: 2147483647;
 
             display: flex;
@@ -152,6 +98,8 @@ const addFixedTopContent = () => {
             gap: 8px;
 
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
 
             font-family:
                 "Microsoft YaHei",
@@ -167,6 +115,7 @@ const addFixedTopContent = () => {
             height: 28px;
             min-width: 62px;
             padding: 0 10px;
+            margin: 0;
 
             display: inline-flex;
             align-items: center;
@@ -184,12 +133,18 @@ const addFixedTopContent = () => {
                 0 1px 4px rgba(0, 0, 0, 0.14),
                 0 1px 2px rgba(0, 0, 0, 0.06);
 
+            font-family:
+                "Microsoft YaHei",
+                "PingFang SC",
+                Arial,
+                sans-serif;
             font-size: 12px;
             font-weight: 400;
             line-height: 1;
 
             cursor: pointer;
             outline: none;
+            appearance: none;
         }
 
         #custom-top-buttons button:hover {
@@ -204,8 +159,7 @@ const addFixedTopContent = () => {
 
         #custom-top-buttons button:focus-visible {
             border-color: #1677ff;
-            box-shadow:
-                0 0 0 2px rgba(22, 119, 255, 0.18);
+            box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.18);
         }
 
         #custom-top-buttons .custom-nav-icon {
@@ -214,20 +168,22 @@ const addFixedTopContent = () => {
             line-height: 1;
         }
 
-        /*
-         * 红色文字固定区域
-         */
         #custom-top-slogan {
             position: fixed;
+            top: ${CUSTOM_TOP_CONFIG.slogan.top}px;
+            left: ${CUSTOM_TOP_CONFIG.slogan.leftPercent}vw;
+            right: ${CUSTOM_TOP_CONFIG.slogan.right}px;
             z-index: 2147483647;
 
-            width: 620px;
-            min-height: 24px;
-            padding: 2px 6px;
-
+            display: block;
+            height: 24px;
+            margin: 0;
+            padding: 2px 4px;
             box-sizing: border-box;
 
-            color: #ff3030;
+            color: #ff3030 !important;
+            background: transparent !important;
+
             font-family:
                 "Microsoft YaHei",
                 "PingFang SC",
@@ -236,28 +192,47 @@ const addFixedTopContent = () => {
             font-size: 12px;
             font-weight: 500;
             line-height: 20px;
-            text-align: center;
+            text-align: left;
 
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            overflow: visible;
+            text-overflow: clip;
 
+            opacity: 1 !important;
+            visibility: visible !important;
             pointer-events: none;
             user-select: none;
+        }
+
+        /*
+         * 窗口较窄时，适当向左移动文字并减小字号，
+         * 防止文字被右侧按钮遮住。
+         */
+        @media screen and (max-width: 1600px) {
+            #custom-top-slogan {
+                left: 58vw;
+                right: 120px;
+                font-size: 11px;
+            }
+        }
+
+        @media screen and (max-width: 1250px) {
+            #custom-top-slogan {
+                left: 52vw;
+                right: 70px;
+                font-size: 10px;
+            }
         }
     `
 
     const buttonContainer = document.createElement('div')
     buttonContainer.id = 'custom-top-buttons'
-    buttonContainer.style.left = `${buttonPosition.left}px`
-    buttonContainer.style.top = `${buttonPosition.top}px`
 
     const backButton = document.createElement('button')
     backButton.id = 'custom-back-button'
     backButton.type = 'button'
     backButton.title = '返回上一页'
     backButton.setAttribute('aria-label', '返回上一页')
-
     backButton.innerHTML = `
         <span class="custom-nav-icon">←</span>
         <span>返回</span>
@@ -268,7 +243,6 @@ const addFixedTopContent = () => {
     refreshButton.type = 'button'
     refreshButton.title = '刷新当前页面'
     refreshButton.setAttribute('aria-label', '刷新当前页面')
-
     refreshButton.innerHTML = `
         <span class="custom-nav-icon">↻</span>
         <span>刷新</span>
@@ -276,11 +250,8 @@ const addFixedTopContent = () => {
 
     const slogan = document.createElement('div')
     slogan.id = 'custom-top-slogan'
-    slogan.style.left = `${sloganPosition.left}px`
-    slogan.style.top = `${sloganPosition.top}px`
-
-    slogan.textContent =
-        '沉下心做好当下事，保持清醒与分寸，长远的收获，从来源于稳步耕耘。'
+    slogan.title = CUSTOM_TOP_CONFIG.text
+    slogan.textContent = CUSTOM_TOP_CONFIG.text
 
     backButton.addEventListener('click', (event) => {
         event.preventDefault()
@@ -317,49 +288,54 @@ const addFixedTopContent = () => {
     document.head.appendChild(style)
     document.body.appendChild(buttonContainer)
     document.body.appendChild(slogan)
-
-    /**
-     * 调整窗口大小时，只防止元素超出屏幕；
-     * 不改变你已经确定的位置。
-     */
-    const correctFixedPosition = () => {
-        const buttonsPosition = keepInsideWindow(
-            buttonPosition.left,
-            buttonPosition.top,
-            buttonContainer
-        )
-
-        buttonContainer.style.left =
-            `${Math.round(buttonsPosition.left)}px`
-
-        buttonContainer.style.top =
-            `${Math.round(buttonsPosition.top)}px`
-
-        const textPosition = keepInsideWindow(
-            sloganPosition.left,
-            sloganPosition.top,
-            slogan
-        )
-
-        slogan.style.left =
-            `${Math.round(textPosition.left)}px`
-
-        slogan.style.top =
-            `${Math.round(textPosition.top)}px`
-    }
-
-    window.addEventListener('resize', correctFixedPosition)
 }
 
 /**
- * 页面加载完成后添加。
+ * 某些网页会在加载过程中重新生成页面结构。
+ * 这里进行短时间补挂载，避免预览时按钮或文字被页面刷新掉。
  */
+const startCustomTopContent = () => {
+    addFixedTopContent()
+
+    let retryCount = 0
+    const retryTimer = window.setInterval(() => {
+        retryCount += 1
+
+        const buttonsExist = document.getElementById('custom-top-buttons')
+        const sloganExist = document.getElementById('custom-top-slogan')
+        const styleExist = document.getElementById('custom-top-style')
+
+        if (!buttonsExist || !sloganExist || !styleExist) {
+            addFixedTopContent()
+        }
+
+        if (retryCount >= 20) {
+            window.clearInterval(retryTimer)
+        }
+    }, 500)
+
+    const observer = new MutationObserver(() => {
+        if (
+            !document.getElementById('custom-top-buttons') ||
+            !document.getElementById('custom-top-slogan') ||
+            !document.getElementById('custom-top-style')
+        ) {
+            addFixedTopContent()
+        }
+    })
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    })
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener(
         'DOMContentLoaded',
-        addFixedTopContent,
+        startCustomTopContent,
         { once: true }
     )
 } else {
-    addFixedTopContent()
+    startCustomTopContent()
 }
